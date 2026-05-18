@@ -17,19 +17,18 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Iniciar sesion en Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
     - name: Construir y Subir imagen a ECR
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: innovatech-back-ventas
+        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        ECR_REPO_URL: ${{ secrets.ECR_REPO_URL_BACKEND }}
         IMAGE_TAG: latest
       run: |
+        # Login a ECR
+        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
+        
         cd Springboot-API-REST
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker build -t $ECR_REPO_URL:$IMAGE_TAG .
+        docker push $ECR_REPO_URL:$IMAGE_TAG
 
     - name: Desplegar en EC2 via AWS SSM
       uses: aws-actions/aws-ssm-send-command@v1
@@ -38,15 +37,15 @@ jobs:
         document-name: AWS-RunShellScript
         parameters: |
           commands:
-            - "aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}"
-            - "docker pull ${{ steps.login-ecr.outputs.registry }}/innovatech-back-ventas:latest"
+            - "aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}"
+            - "docker pull ${{ secrets.ECR_REPO_URL_BACKEND }}:latest"
             - "mkdir -p /app/backend-ventas && cd /app/backend-ventas"
             - "cat << 'EOF' > docker-compose.yml"
             - "version: '3.8'"
             - "services:"
             - "  backend-ventas:"
             - "    container_name: api_ventas"
-            - "    image: ${{ steps.login-ecr.outputs.registry }}/innovatech-back-ventas:latest"
+            - "    image: ${{ secrets.ECR_REPO_URL_BACKEND }}:latest"
             - "    ports:"
             - "      - \"8080:8080\""
             - "    environment:"
