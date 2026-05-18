@@ -1,0 +1,71 @@
+name: Deploy Backend Ventas
+
+on:
+  push:
+    branches: [ deploy ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configurar credenciales AWS
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Iniciar sesion en Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Construir y Subir imagen a ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: innovatech-back-ventas
+        IMAGE_TAG: latest
+      run: |
+        cd Springboot-API-REST
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+    - name: Desplegar en EC2 via AWS SSM
+      uses: aws-actions/aws-ssm-send-command@v1
+      with:
+        instance-ids: ${{ secrets.EC2_BACKEND_INSTANCE_ID }}
+        document-name: AWS-RunShellScript
+        parameters: |
+          commands:
+            - "aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}"
+            - "docker pull ${{ steps.login-ecr.outputs.registry }}/innovatech-back-ventas:latest"
+            - "mkdir -p /app/backend-ventas && cd /app/backend-ventas"
+            - "cat << 'EOF' > docker-compose.yml"
+            - "version: '3.8'"
+            - "services:"
+            - "  backend-ventas:"
+            - "    container_name: api_ventas"
+            - "    image: ${{ steps.login-ecr.outputs.registry }}/innovatech-back-ventas:latest"
+            - "    ports:"
+            - "      - \"8080:8080\""
+            - "    environment:"
+            - "      - DB_ENDPOINT=${{ secrets.DB_ENDPOINT }}"
+            - "      - DB_PORT=3306"
+            - "      - DB_NAME=db_innovatech"
+            - "      - DB_USERNAME=${{ secrets.DB_USER }}"
+            - "      - DB_PASSWORD=${{ secrets.DB_PASSWORD }}"
+            - "    volumes:"
+            - "      - backend_ventas_logs:/app/logs"
+            - "    restart: unless-stopped"
+            - "    networks:"
+            - "      - innovatech-private-net"
+            - "volumes:"
+            - "  backend_ventas_logs:"
+            - "    name: innovatech_ventas_logs"
+            - "networks:"
+            - "  innovatech-private-net:"
+            - "    driver: bridge"
+            - "EOF"
+            - "docker compose down || true"
+            - "docker compose up -d"

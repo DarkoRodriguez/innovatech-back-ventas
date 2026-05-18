@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend-ventas:
+    container_name: api_ventas
+    image: ${AWS_REGISTRY}/innovatech-back-ventas:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_ENDPOINT=${DB_ENDPOINT}
+      - DB_PORT=3306
+      - DB_NAME=db_innovatech
+      - DB_USERNAME=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - backend_ventas_logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - innovatech-private-net
+
+volumes:
+  backend_ventas_logs:
+    name: innovatech_ventas_logs
+
+networks:
+  innovatech-private-net:
+    driver: bridge
