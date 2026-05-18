@@ -38,3 +38,24 @@ El microservicio está paquetizado usando un **Dockerfile Multi-Stage**:
 
 ## 🔄 Pipeline CI/CD
 El flujo de CI/CD automatiza la construcción de esta imagen Docker, publicándola en el registro y reiniciando el servicio en la instancia backend EC2 mediante comandos enviados por **AWS SSM** (sin exponer el puerto SSH). Este pipeline solo se dispara con modificaciones en la rama `deploy`.
+
+## 📡 Comunicación entre aplicaciones
+- **Cómo se conectan:** El microservicio de `ventas` expone una API REST que es consumida por el frontend y, cuando aplica, por el microservicio de `despachos`. En despliegues con Docker Compose, los servicios se comunican por la red interna usando los nombres de servicio como host.
+- **Patrones de integración:** Se pueden usar llamadas HTTP directas (sincrónicas) o un bus de eventos/colas (mensajería) para desacoplar `ventas` de `despachos`. Elija el patrón según requisitos de consistencia y latencia.
+- **Variables de entorno importantes:** `DB_ENDPOINT`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DESPACHOS_HOST` (si las llamadas a despachos son directas).
+
+## 🔌 Endpoints de ejemplo
+- `GET /api/v1/ventas` — Listar ventas.
+- `POST /api/v1/ventas` — Crear una venta / orden de compra.
+- `GET /api/v1/ventas/{id}` — Consultar una venta.
+
+## 🧭 Ejecutar en el Monorepo (Docker Compose)
+1. Desde la raíz del monorepo ejecutar:
+   ```bash
+   docker compose up -d --build
+   ```
+2. Esto levanta los servicios relacionados (front y back) y la base de datos. Use los nombres de servicio en las variables de entorno para enrutar llamadas internas.
+
+## 🧾 Notas de integración
+- Documente los contratos de API (OpenAPI/Swagger) para mantener consistencia entre consumidores y proveedores.
+- Añada autenticación/autoridad (JWT, API Gateway) para proteger endpoints que modifican estados críticos.
