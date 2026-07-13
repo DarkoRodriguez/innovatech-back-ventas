@@ -55,6 +55,8 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
+          kubectl create namespace innovatech --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f k8s/namespace.yaml
           kubectl apply -f k8s/
           kubectl set image deployment/backend-ventas backend-ventas=$ECR_REGISTRY/${ECR_REPO_BACKEND}:${IMAGE_TAG} -n innovatech
           kubectl rollout status deployment/backend-ventas -n innovatech
