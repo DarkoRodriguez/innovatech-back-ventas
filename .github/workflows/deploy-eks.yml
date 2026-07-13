@@ -35,7 +35,9 @@ jobs:
         run: |
           cd Springboot-API-REST
           docker build -t $ECR_REGISTRY/${ECR_REPO_BACKEND}:${IMAGE_TAG} .
+          docker tag $ECR_REGISTRY/${ECR_REPO_BACKEND}:${IMAGE_TAG} $ECR_REGISTRY/${ECR_REPO_BACKEND}:latest
           docker push $ECR_REGISTRY/${ECR_REPO_BACKEND}:${IMAGE_TAG}
+          docker push $ECR_REGISTRY/${ECR_REPO_BACKEND}:latest
 
       - name: Instalar kubectl
         uses: azure/setup-kubectl@v4
